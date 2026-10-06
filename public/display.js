@@ -96,8 +96,20 @@
       if (sp) body.append(el('div', 'sp', sp));
       li.append(body); list.append(li);
     }
-    requestAnimationFrame(scrollToCurrent);
+    nowCard.classList.toggle('idle', !cur);
+    requestAnimationFrame(() => { fitAll(); scrollToCurrent(); });
   }
+
+  function fit(el, min) {
+    el.style.setProperty('--k', 1);
+    let k = 1;
+    while (el.scrollHeight > el.clientHeight + 1 && k > min) { k = +(k - 0.04).toFixed(2); el.style.setProperty('--k', k); }
+  }
+  function fitAll() {
+    if ($('agendaView').hidden) return;
+    fit($('nowCard'), 0.5); fit($('nextCard'), 0.5); fit($('list'), 0.5);
+  }
+  window.addEventListener('resize', () => { fitAll(); scrollToCurrent(); });
 
   function scrollToCurrent() {
     const list = $('list');
@@ -139,7 +151,7 @@
     }
     const wasHidden = $('agendaView').hidden;
     $('agendaView').hidden = showPartners;
-    if (wasHidden && !showPartners) scrollToCurrent();
+    if (wasHidden && !showPartners) { fitAll(); scrollToCurrent(); }
     $('partnerView').hidden = !showPartners;
   }
 
