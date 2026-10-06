@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Agenda</title>
+<link rel="stylesheet" href="/display.css">
+</head>
+<body>
+<div id="app">
+  <header>
+    <div class="logo-slot left"><img id="logo1" alt="" hidden></div>
+    <div class="head-title">
+      <h1 id="title"></h1>
+      <div id="subtitle"></div>
+    </div>
+    <div class="head-right">
+      <div class="room-badge" id="roomBadge"></div>
+      <div class="clock" id="clock"></div>
+    </div>
+    <div class="logo-slot right"><img id="logo2" alt="" hidden></div>
+  </header>
+
+  <main id="agendaView">
+    <section class="focus">
+      <article class="card now" id="nowCard">
+        <div class="label"><span class="pulse"></span><span id="nowLabel">Jetzt</span></div>
+        <div id="nowBody"></div>
+        <div class="progress" id="progressWrap"><div id="progress"></div></div>
+      </article>
+      <article class="card next" id="nextCard">
+        <div class="label">Als Nächstes</div>
+        <div id="nextBody"></div>
+      </article>
+    </section>
+    <section class="list-wrap">
+      <h2>Programm</h2>
+      <ol id="list"></ol>
+    </section>
+  </main>
+
+  <main id="partnerView" hidden>
+    <h2 id="partnerTitle"></h2>
+    <div id="partnerGrid"></div>
+  </main>
+
+  <div id="offline" hidden>Keine Verbindung – letzter Stand wird angezeigt</div>
+</div>
+<script src="/display.js"></script>
+</body>
+</html>

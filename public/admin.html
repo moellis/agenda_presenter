@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Admin – Agenda-Presenter</title>
+<link rel="stylesheet" href="/admin.css">
+</head>
+<body>
+<div id="login" hidden>
+  <form id="loginForm" class="panel narrow">
+    <h1>Admin-Anmeldung</h1>
+    <label>Passwort<input type="password" id="pw" autofocus required></label>
+    <button class="primary">Anmelden</button>
+    <p class="err" id="loginErr"></p>
+  </form>
+</div>
+
+<div id="admin" hidden>
+  <header>
+    <strong id="hTitle">Agenda-Presenter</strong>
+    <nav id="tabs">
+      <button data-tab="event" class="active">Veranstaltung</button>
+      <button data-tab="rooms">Räume</button>
+      <button data-tab="items">Programm</button>
+      <button data-tab="partners">Partner</button>
+      <button data-tab="links">Anzeige-Links</button>
+    </nav>
+    <button id="logout" class="ghost">Abmelden</button>
+  </header>
+  <main>
+    <section id="tab-event"></section>
+    <section id="tab-rooms" hidden></section>
+    <section id="tab-items" hidden></section>
+    <section id="tab-partners" hidden></section>
+    <section id="tab-links" hidden></section>
+  </main>
+</div>
+
+<dialog id="dlg"><form method="dialog" id="dlgForm"></form></dialog>
+<div id="toast" hidden></div>
+<script src="/admin.js"></script>
+</body>
+</html>

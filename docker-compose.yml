@@ -1,0 +1,12 @@
+services:
+  agenda:
+    build: .
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:?bitte ADMIN_PASSWORD setzen}
+    volumes:
+      - agenda-data:/data
+volumes:
+  agenda-data:
