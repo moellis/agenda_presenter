@@ -88,6 +88,7 @@ main { flex: 1; min-height: 0; padding: 2.1rem 3.3rem 1.9rem; }
 #list li.current, #list li.current-secondary { background: var(--accent); color: #fff; margin: 0 -1.2em; padding-left: 1.2em; padding-right: 1.2em; border-bottom-color: var(--accent); }
 #list li.current .el, #list li.current-secondary .el { color: #fff; }
 #list li.current .t { font-weight: 700; }
+#list li.next { background: var(--tint); margin: 0 -1.2em; padding-left: 1.2em; padding-right: 1.2em; border-bottom-color: var(--tint); }
 #list li.next .t { color: var(--red); font-weight: 700; }
 #list li.next .t::before { content: "» "; }
 
