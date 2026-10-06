@@ -9,17 +9,16 @@
 <body>
 <div id="app">
   <header>
-    <div class="logo-slot left"><img id="logo1" alt="" hidden></div>
+    <div class="logo-slot left"><img id="logo1" alt="" hidden><h1 id="title" hidden></h1></div>
     <div class="head-title">
-      <h1 id="title"></h1>
+      <div class="headline" id="headline"><span class="arr">»</span> <b id="hl1"></b> <span id="hl2"></span></div>
       <div id="subtitle"></div>
     </div>
-    <div class="logo-slot right"><img id="logo2" alt="" hidden></div>
+    <div class="head-right">
+      <img id="logo2" alt="" hidden>
+      <div class="clock" id="clock"></div>
+    </div>
   </header>
-  <div class="strip">
-    <div class="room-badge" id="roomBadge"></div>
-    <div class="clock" id="clock"></div>
-  </div>
 
   <main id="agendaView">
     <section class="focus">
@@ -40,7 +39,6 @@
   </main>
 
   <main id="partnerView" hidden>
-    <h2 id="partnerTitle"></h2>
     <div id="partnerGrid"></div>
   </main>
 

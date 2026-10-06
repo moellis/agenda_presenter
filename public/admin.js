@@ -81,10 +81,10 @@
   }
 
   // ---- Veranstaltung ----
-  function logoBox(slot, file) {
+  function logoBox(slot, file, label) {
     const input = h('input', { type: 'file', accept: 'image/*' });
     return h('div', {},
-      h('label', {}, `Logo ${slot}`),
+      h('label', {}, label),
       h('div', { class: 'logo-prev' }, file ? h('img', { src: logoUrl(file), alt: '' }) : h('span', { class: 'hint' }, 'Kein Logo')),
       h('div', { class: 'actions' }, input,
         h('button', { class: 'ghost', type: 'button', onclick: act(async () => {
@@ -121,8 +121,8 @@
           partners_enabled: f.partners_enabled.checked ? '1' : '0', partners_title: f.partners_title.value,
           rotate_agenda_sec: f.rotate_agenda_sec.value, rotate_partner_sec: f.rotate_partner_sec.value })) }, 'Speichern')),
       h('div', { class: 'panel' }, h('h2', {}, 'Logos'),
-        h('p', { class: 'hint' }, 'Logo 1 erscheint links, Logo 2 rechts im Kopf der Anzeige. PNG, JPG, SVG oder WebP, max. 8 MB.'),
-        h('div', { class: 'row' }, logoBox(1, s.logo1), logoBox(2, s.logo2))));
+        h('p', { class: 'hint' }, 'Das Veranstaltungslogo erscheint groß links, das Firmenlogo rechts oben im Kopf der Anzeige. PNG, JPG, SVG oder WebP, max. 8 MB.'),
+        h('div', { class: 'row' }, logoBox(1, s.logo1, 'Veranstaltungslogo (links, groß)'), logoBox(2, s.logo2, 'Firmenlogo (rechts oben)'))));
   }
 
   // ---- Räume ----

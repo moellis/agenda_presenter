@@ -43,7 +43,7 @@ CREATE TABLE IF NOT EXISTS partners (
 
 const DEFAULTS = {
   title: 'Veranstaltung', subtitle: '', event_date: '', logo1: '', logo2: '',
-  accent: '#00589b', partners_enabled: '1', partners_title: 'Die Partner der Veranstaltung',
+  accent: '#005498', partners_enabled: '1', partners_title: 'Die Partner der Veranstaltung',
   rotate_agenda_sec: '45', rotate_partner_sec: '15',
 };
 const getSettings = () => {
@@ -65,8 +65,8 @@ function seed() {
   setSetting('title', 'IT-Sicherheitsforum Allgäu 2026');
   setSetting('subtitle', '8. Oktober 2026 · Hotel Das Flax, Dietmannsried');
   setSetting('event_date', D);
-  setSetting('logo1', copy('nexperto-logo.jpg'));
-  setSetting('logo2', copy('its-logo.png'));
+  setSetting('logo1', copy('its-logo.png'));
+  setSetting('logo2', copy('nexperto-logo.jpg'));
   const room = db.prepare('INSERT INTO rooms(name,slug,is_main,sort) VALUES(?,?,?,?)');
   const main = Number(room.run('Hauptbühne', 'hauptbuehne', 1, 0).lastInsertRowid);
   const see = Number(room.run('Raum See', 'see', 0, 1).lastInsertRowid);

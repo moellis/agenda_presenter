@@ -8,6 +8,7 @@
   const nowParam = params.get('now');
   const CACHE_KEY = 'agenda-state:' + room;
 
+  let partnerShown = false;
   let state = null, fetchedAt = 0, baseMs = 0, rotationStart = Date.now(), lastSig = '';
 
   const naiveMs = (s) => Date.parse(s + 'Z');
@@ -36,18 +37,25 @@
     if (fresh) { baseMs = naiveMs(s.now); fetchedAt = Date.now(); }
     document.documentElement.style.setProperty('--accent', s.settings.accent || '#00589b');
     document.title = (s.settings.title || 'Agenda') + (s.room ? ' – ' + s.room.name : '');
-    $('title').textContent = s.settings.title;
     $('subtitle').textContent = s.settings.subtitle;
     for (const [id, f] of [['logo1', s.settings.logo1], ['logo2', s.settings.logo2]]) {
       const img = $(id);
       if (f) { const u = '/uploads/' + f; if (img.getAttribute('src') !== u) img.src = u; img.hidden = false; } else img.hidden = true;
     }
-    $('roomBadge').textContent = s.room ? s.room.name : '';
+    $('title').textContent = s.settings.title;
+    $('title').hidden = !!s.settings.logo1;
+    setHeadline(partnerShown, s);
     const sig = JSON.stringify([s.items, s.currentId, s.nextId, s.phase, s.partners, s.settings, s.room]);
     if (sig === lastSig) return;
     lastSig = sig;
     renderAgenda(s);
     renderPartners(s);
+  }
+
+  function setHeadline(partner, s) {
+    s = s || state; if (!s) return;
+    $('hl1').textContent = partner ? (s.settings.partners_title || 'Die Partner der Veranstaltung') : 'Programm';
+    $('hl2').textContent = partner ? '' : (s.room ? s.room.name : '');
   }
 
   function itemFocus(parent, it) {
@@ -101,16 +109,17 @@
     requestAnimationFrame(() => { fitAll(); scrollToCurrent(); });
   }
 
-  function fit(el, min) {
+  function fit(el, min, probe) {
+    probe = probe || el;
     el.style.setProperty('--k', 1);
     let k = 1;
-    while (el.scrollHeight > el.clientHeight + 1 && k > min) { k = +(k - 0.04).toFixed(2); el.style.setProperty('--k', k); }
+    while (probe.scrollHeight > probe.clientHeight + 1 && k > min) { k = +(k - 0.04).toFixed(2); el.style.setProperty('--k', k); }
   }
   function fitAll() {
     if ($('agendaView').hidden) return;
-    fit($('nowCard'), 0.5); fit($('nextCard'), 0.5); fit($('list'), 0.5);
+    fit($('nowCard'), 0.5, $('nowBody')); fit($('nextCard'), 0.5); fit($('list'), 0.5);
   }
-  window.addEventListener('resize', () => { fitAll(); scrollToCurrent(); });
+  window.addEventListener('resize', () => { if (state) renderPartners(state); fitAll(); scrollToCurrent(); });
 
   function scrollToCurrent() {
     const list = $('list');
@@ -120,17 +129,20 @@
   }
 
   function renderPartners(s) {
-    $('partnerTitle').textContent = s.settings.partners_title || 'Die Partner der Veranstaltung';
     const g = $('partnerGrid'); g.replaceChildren();
     const n = s.partners.length;
-    g.style.setProperty('--cols', n <= 3 ? n || 1 : n <= 8 ? 4 : n <= 12 ? 4 : 5);
-    for (const p of s.partners) {
-      const c = el('div', 'p-card');
+    const portrait = window.matchMedia('(orientation: portrait)').matches;
+    const cols = portrait ? 2 : n <= 3 ? Math.max(n, 1) : n <= 12 ? 4 : 5;
+    const rows = Math.ceil(n / cols) || 1;
+    g.style.setProperty('--cols', cols);
+    s.partners.forEach((p, i) => {
+      const c = el('div', 'p-card' + ((i + 1) % cols === 0 || i === n - 1 ? ' edge' : '') + (i >= (rows - 1) * cols ? ' last' : ''));
       const im = el('div', 'img');
-      if (p.logo) { const i = el('img'); i.src = '/uploads/' + p.logo; i.alt = p.name; im.append(i); }
+      if (p.logo) { const i2 = el('img'); i2.src = '/uploads/' + p.logo; i2.alt = p.name; im.append(i2); }
       c.append(im, el('div', 'nm', p.name));
+      if (p.category) c.append(el('div', 'cat', p.category));
       g.append(c);
-    }
+    });
   }
 
   function tick() {
@@ -151,6 +163,7 @@
       showPartners = ((Date.now() - rotationStart) % (A + P)) >= A;
     }
     const wasHidden = $('agendaView').hidden;
+    if (showPartners !== partnerShown) { partnerShown = showPartners; setHeadline(partnerShown); }
     $('agendaView').hidden = showPartners;
     if (wasHidden && !showPartners) { fitAll(); scrollToCurrent(); }
     $('partnerView').hidden = !showPartners;
