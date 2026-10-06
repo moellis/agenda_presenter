@@ -91,7 +91,7 @@
     } else if (s.phase === 'after') nb.append(el('div', 'empty', 'Vielen Dank für Ihren Besuch!'));
     else nb.append(el('div', 'empty', 'Gerade läuft kein Programmpunkt.'));
     if (next) itemFocus(xb, next);
-    else xb.append(el('div', 'empty', s.phase === 'after' ? '—' : 'Keine weiteren Programmpunkte.'));
+    else xb.append(el('div', 'empty', 'Keine weiteren Programmpunkte.'));
 
     const list = $('list'); list.replaceChildren();
     for (const it of s.items) {
