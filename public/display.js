@@ -54,12 +54,13 @@
     parent.append(el('div', 'time', `${it.start} – ${it.end} Uhr`));
     parent.append(el('div', 'f-title', it.title));
     if (it.speaker || it.company) {
-      const sp = el('div', 'f-speaker', it.speaker || '');
-      if (it.company) { const c = el('small', '', (it.speaker ? ' · ' : '') + it.company); sp.append(c); }
+      const sp = el('div', 'f-speaker');
+      if (it.speaker) sp.append(el('b', '', it.speaker));
+      if (it.company) { sp.append(document.createTextNode((it.speaker ? ' · ' : '') + it.company)); }
       parent.append(sp);
     }
     if (it.description) parent.append(el('div', 'f-desc', it.description));
-    if (it.elsewhere) parent.append(el('div', 'f-elsewhere', `📍 findet in „${it.elsewhere}“ statt`));
+    if (it.elsewhere) parent.append(el('div', 'f-elsewhere', `Findet statt: ${it.elsewhere}`));
   }
 
   function renderAgenda(s) {
