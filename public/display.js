@@ -165,7 +165,7 @@
     const wasHidden = $('agendaView').hidden;
     if (showPartners !== partnerShown) { partnerShown = showPartners; setHeadline(partnerShown); }
     $('agendaView').hidden = showPartners;
-    if (wasHidden && !showPartners) { fitAll(); scrollToCurrent(); }
+    if (wasHidden && !showPartners) { fitAll(); scrollToCurrent(); requestAnimationFrame(() => { fitAll(); scrollToCurrent(); }); }
     $('partnerView').hidden = !showPartners;
   }
 

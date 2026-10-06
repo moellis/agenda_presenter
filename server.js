@@ -97,7 +97,7 @@ function seed() {
     ['WatchGuard', 'Technologie-Partner · Netzwerksicherheit', 'partner-watchguard.png'],
     ['Hornetsecurity', 'Technologie-Partner · E-Mail-Sicherheit', 'partner-hornetsecurity.png'],
     ['Microsoft', 'Technologie-Partner · KI & Datenschutz', 'partner-microsoft.png'],
-    ['Allianz', 'Partner · Cyber-Versicherung', 'partner-allianz.jpg'],
+    ['Allianz', 'Partner · Cyber-Versicherung', 'partner-allianz.png'],
     ['ITQ – Institut für Technologiequalität', 'Technologie-Partner · NIS2 & ISO 27001', 'partner-itq.png'],
     ['Yubico', 'Technologie-Partner · Authentifizierung', 'partner-yubico.png'],
     ['Axis Kamerasysteme', 'Technologie-Partner · Sicherheitstechnik', 'partner-axis.png'],
