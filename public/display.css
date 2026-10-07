@@ -103,8 +103,8 @@ main { flex: 1; min-height: 0; padding: 2.1rem 3.3rem 1.9rem; display: flex; fle
 .p-card .nm { font-weight: 700; font-size: 1.3rem; text-align: center; line-height: 1.2; margin-top: 0.9rem; }
 .p-card .cat { font-weight: 300; font-size: 1.05rem; text-align: center; line-height: 1.25; margin-top: 0.25rem; }
 
-#offline { position: fixed; bottom: 0.8rem; left: 50%; transform: translateX(-50%); background: var(--ink); color: #fff; padding: 0.4rem 1.2rem; font-size: 0.9rem; }
-#offline[hidden] { display: none; }
+#net { position: fixed; top: 0.7rem; right: 0.9rem; width: 1.7rem; height: 1.7rem; color: #767676; z-index: 10; opacity: .9; }
+#net[hidden] { display: none; }
 
 /* Hochformat */
 @media (orientation: portrait) {

@@ -7,35 +7,81 @@
   const noRotate = params.get('rotate') === '0';
   const nowParam = params.get('now');
   const CACHE_KEY = 'agenda-state:' + room;
+  const POLL_MS = 10000, FETCH_TIMEOUT_MS = 6000;
 
   let partnerShown = false;
-  let state = null, fetchedAt = 0, baseMs = 0, rotationStart = Date.now(), lastSig = '';
+  let data = null;                 // letzter Stand (Server oder Zwischenspeicher)
+  let serverBaseMs = null;         // Serverzeit (naiv, Europe/Berlin) beim letzten Abruf
+  let serverPerf = 0;              // performance.now() beim letzten Abruf
+  let online = false, loading = false;
+  let dataSig = '', viewSig = '', view = null;
+  const rotationStart = performance.now();
 
   const naiveMs = (s) => Date.parse(s + 'Z');
   const el = (tag, cls, text) => { const e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; };
   const hm = (ms) => new Date(ms).toISOString().substr(11, 5);
-  const curMs = () => baseMs + (Date.now() - fetchedAt);
 
+  // Berlin-Zeit der PC-Uhr als "naive" Millisekunden (wie naiveMs der Server-Zeitstempel)
+  const BERLIN = new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Berlin', hourCycle: 'h23', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit' });
+  function pcBerlinMs() {
+    const p = Object.fromEntries(BERLIN.formatToParts(new Date()).map((x) => [x.type, x.value]));
+    return naiveMs(`${p.year}-${p.month}-${p.day}T${p.hour}:${p.minute}:${p.second}`);
+  }
+  // Vorrang: Serverzeit (fortgeschrieben mit monotoner Uhr). Nur ohne jeden Serverkontakt: PC-Uhr.
+  const curMs = () => (serverBaseMs != null ? serverBaseMs + (performance.now() - serverPerf) : pcBerlinMs());
+
+  // ---------- Daten holen ----------
   async function load() {
+    if (loading) return;
+    loading = true;
+    const ctl = new AbortController();
+    const to = setTimeout(() => ctl.abort(), FETCH_TIMEOUT_MS);
     try {
       const q = new URLSearchParams({ room });
       if (nowParam) q.set('now', nowParam);
-      const r = await fetch('/api/state?' + q, { cache: 'no-store' });
+      const t0 = performance.now();
+      const r = await fetch('/api/state?' + q, { cache: 'no-store', signal: ctl.signal });
       if (!r.ok) throw new Error(r.status);
       const s = await r.json();
+      const t1 = performance.now();
+      serverBaseMs = naiveMs(s.now) + (t1 - t0) / 2;
+      serverPerf = t1;
       try { localStorage.setItem(CACHE_KEY, JSON.stringify(s)); } catch {}
-      apply(s, true);
-      $('offline').hidden = true;
+      setOnline(true);
+      applyData(s);
     } catch {
-      if (!state) { try { const c = JSON.parse(localStorage.getItem(CACHE_KEY)); if (c) apply(c, false); } catch {} }
-      $('offline').hidden = !state;
+      setOnline(false);
+      if (!data) {
+        try { const c = JSON.parse(localStorage.getItem(CACHE_KEY)); if (c && c.items) applyData(c); } catch {}
+      }
+    } finally {
+      clearTimeout(to); loading = false;
     }
   }
 
-  function apply(s, fresh) {
-    state = s;
-    if (fresh) { baseMs = naiveMs(s.now); fetchedAt = Date.now(); }
-    document.documentElement.style.setProperty('--accent', s.settings.accent || '#00589b');
+  function setOnline(v) {
+    online = v;
+    $('net').hidden = v;
+  }
+
+  // ---------- Status aus Uhrzeit berechnen (wie auf dem Server) ----------
+  function compute(d, ms) {
+    const items = d.items.map((it) => {
+      const a = naiveMs(it.startTs), b = naiveMs(it.endTs);
+      return { ...it, status: ms >= b ? 'past' : ms >= a ? 'current' : 'upcoming' };
+    });
+    const cur = items.filter((i) => i.status === 'current');
+    const current = cur.find((i) => i.type !== 'break') || cur[0] || null;
+    const upcoming = items.filter((i) => i.status === 'upcoming');
+    const next = upcoming.find((i) => i.type !== 'break' && i.id !== current?.id) || null;
+    for (const i of items) if (i.status === 'current' && i !== current) i.status = 'current-secondary';
+    const phase = !items.length ? 'empty' : current ? 'live' : upcoming.length ? (items.some((i) => i.status === 'past') ? 'between' : 'before') : 'after';
+    return { ...d, items, currentId: current?.id ?? null, nextId: next?.id ?? null, phase };
+  }
+
+  function applyData(s) {
+    data = s;
+    document.documentElement.style.setProperty('--accent', s.settings.accent || '#005498');
     document.title = (s.settings.title || 'Agenda') + (s.room ? ' – ' + s.room.name : '');
     $('subtitle').textContent = s.settings.subtitle;
     for (const [id, f] of [['logo1', s.settings.logo1], ['logo2', s.settings.logo2]]) {
@@ -45,15 +91,22 @@
     $('title').textContent = s.settings.title;
     $('title').hidden = !!s.settings.logo1;
     setHeadline(partnerShown, s);
-    const sig = JSON.stringify([s.items, s.currentId, s.nextId, s.phase, s.partners, s.settings, s.room]);
-    if (sig === lastSig) return;
-    lastSig = sig;
-    renderAgenda(s);
-    renderPartners(s);
+    const sig = JSON.stringify([s.partners, s.settings, s.room, s.rooms]);
+    if (sig !== dataSig) { dataSig = sig; renderPartners(s); }
+    refreshView();
+  }
+
+  function refreshView() {
+    if (!data) return;
+    view = compute(data, curMs());
+    const sig = JSON.stringify([data.items, view.items.map((i) => i.status), view.currentId, view.nextId, view.phase]);
+    if (sig === viewSig) return;
+    viewSig = sig;
+    renderAgenda(view);
   }
 
   function setHeadline(partner, s) {
-    s = s || state; if (!s) return;
+    s = s || data; if (!s) return;
     $('hl1').textContent = partner ? (s.settings.partners_title || 'Die Partner der Veranstaltung') : 'Programm';
     $('hl2').textContent = partner ? '' : (s.room ? s.room.name : '');
   }
@@ -119,7 +172,7 @@
     if ($('agendaView').hidden) return;
     fit($('nowCard'), 0.5, $('nowBody')); fit($('nextCard'), 0.5); fit($('list'), 0.5);
   }
-  window.addEventListener('resize', () => { if (state) renderPartners(state); fitAll(); scrollToCurrent(); });
+  window.addEventListener('resize', () => { if (data) renderPartners(data); fitAll(); scrollToCurrent(); });
 
   function scrollToCurrent() {
     const list = $('list');
@@ -146,21 +199,22 @@
   }
 
   function tick() {
-    if (!state) return;
+    if (!data) return;
     const ms = curMs();
     $('clock').textContent = hm(ms);
-    const cur = state.items.find((i) => i.id === state.currentId);
+    refreshView();
+    const cur = view && view.items.find((i) => i.id === view.currentId);
     if (cur) {
       const a = naiveMs(cur.startTs), b = naiveMs(cur.endTs);
       $('progress').style.width = Math.max(0, Math.min(100, ((ms - a) / (b - a)) * 100)) + '%';
     }
     // Wechsel Agenda <-> Partner
-    const hasPartners = state.settings.partners_enabled && state.partners.length > 0;
+    const hasPartners = data.settings.partners_enabled && data.partners.length > 0;
     let showPartners = false;
     if (partnerOnly) showPartners = true;
     else if (hasPartners && !noRotate) {
-      const A = state.settings.rotate_agenda_sec * 1000, P = state.settings.rotate_partner_sec * 1000;
-      showPartners = ((Date.now() - rotationStart) % (A + P)) >= A;
+      const A = data.settings.rotate_agenda_sec * 1000, P = data.settings.rotate_partner_sec * 1000;
+      showPartners = ((performance.now() - rotationStart) % (A + P)) >= A;
     }
     const wasHidden = $('agendaView').hidden;
     if (showPartners !== partnerShown) { partnerShown = showPartners; setHeadline(partnerShown); }
@@ -169,8 +223,11 @@
     $('partnerView').hidden = !showPartners;
   }
 
+  // Zwischenspeicher für Neustart ohne Netz (nur in sicherem Kontext: https oder localhost)
+  if ('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js').catch(() => {});
+
   load();
-  setInterval(load, 10000);
+  setInterval(load, POLL_MS);
   setInterval(tick, 1000);
   tick();
 })();

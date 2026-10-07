@@ -23,6 +23,8 @@ const SESSION_SECRET = process.env.SESSION_SECRET || crypto.createHash('sha256')
 // ---------- Datenbank ----------
 const db = new DatabaseSync(path.join(DATA_DIR, 'agenda.db'));
 db.exec(`
+PRAGMA journal_mode = WAL;
+PRAGMA busy_timeout = 5000;
 PRAGMA foreign_keys = ON;
 CREATE TABLE IF NOT EXISTS settings (key TEXT PRIMARY KEY, value TEXT);
 CREATE TABLE IF NOT EXISTS rooms (
@@ -58,7 +60,9 @@ const tx = (fn) => { db.exec('BEGIN'); try { const r = fn(); db.exec('COMMIT'); 
 
 // ---------- Erstbefüllung ----------
 function seed() {
-  if (db.prepare('SELECT COUNT(*) c FROM rooms').get().c > 0 || db.prepare('SELECT COUNT(*) c FROM items').get().c > 0) return;
+  const had = db.prepare('SELECT COUNT(*) c FROM rooms').get().c > 0 || db.prepare('SELECT COUNT(*) c FROM items').get().c > 0 || db.prepare("SELECT 1 FROM settings WHERE key='seeded'").get();
+  if (had) { setSetting('seeded', '1'); return; }
+  setSetting('seeded', '1');
   const seedDir = path.join(__dirname, 'seed-assets');
   const copy = (f) => { if (fs.existsSync(path.join(seedDir, f))) fs.copyFileSync(path.join(seedDir, f), path.join(UPLOAD_DIR, f)); return f; };
   const D = '2026-10-08';
@@ -184,6 +188,7 @@ const app = express();
 app.disable('x-powered-by');
 app.use(express.json({ limit: '1mb' }));
 
+app.get('/sw.js', (req, res) => { res.set('Cache-Control', 'no-cache'); res.type('js').sendFile(path.join(__dirname, 'public', 'sw.js')); });
 app.use('/uploads', (req, res, next) => { res.set('Content-Security-Policy', "sandbox; default-src 'none'; style-src 'unsafe-inline'"); res.set('X-Content-Type-Options', 'nosniff'); next(); },
   express.static(UPLOAD_DIR, { maxAge: '1h' }));
 
@@ -193,8 +198,25 @@ const upload = multer({
     filename: (req, file, cb) => cb(null, crypto.randomBytes(8).toString('hex') + path.extname(file.originalname).toLowerCase().replace(/[^.a-z0-9]/g, '')),
   }),
   limits: { fileSize: 8 * 1024 * 1024 },
-  fileFilter: (req, file, cb) => cb(null, /^image\/(png|jpe?g|svg\+xml|webp|gif)$/.test(file.mimetype)),
+  fileFilter: (req, file, cb) => { const ok = /^image\/(png|jpe?g|svg\+xml|webp|gif)$/.test(file.mimetype); if (!ok) req.badFile = true; cb(null, ok); },
 });
+// Dateiinhalt prüfen (nicht nur die vom Browser gemeldete Art)
+function looksLikeImage(file) {
+  try {
+    const fd = fs.openSync(file.path, 'r'); const b = Buffer.alloc(256); const n = fs.readSync(fd, b, 0, 256, 0); fs.closeSync(fd);
+    const h = b.subarray(0, n);
+    const hex = h.subarray(0, 12).toString('hex');
+    if (hex.startsWith('89504e47')) return true;                       // PNG
+    if (hex.startsWith('ffd8ff')) return true;                         // JPEG
+    if (hex.startsWith('47494638')) return true;                       // GIF
+    if (hex.startsWith('52494646') && h.subarray(8, 12).toString() === 'WEBP') return true;
+    return /<svg[\s>]/i.test(h.toString('utf8'));                      // SVG
+  } catch { return false; }
+}
+function checkUpload(req) {
+  if (req.badFile) throw new Error('Nur Bilddateien (PNG, JPG, SVG, WebP, GIF) sind erlaubt');
+  if (req.file && !looksLikeImage(req.file)) { removeUpload(req.file.filename); req.file = undefined; throw new Error('Die Datei ist kein gültiges Bild'); }
+}
 const removeUpload = (name) => { if (name && !name.includes('/') && !name.includes('..')) fs.rm(path.join(UPLOAD_DIR, name), { force: true }, () => {}); };
 const isSeedShared = (name) => db.prepare('SELECT 1 FROM partners WHERE logo=?').get(name) || ['logo1', 'logo2'].some((k) => getSettings()[k] === name);
 
@@ -211,7 +233,8 @@ app.post('/api/login', (req, res) => {
   if (a.n >= 10) return res.status(429).json({ error: 'Zu viele Versuche, bitte später erneut versuchen.' });
   if (!safeEq(String(req.body.password || ''), ADMIN_PASSWORD)) { a.n++; attempts.set(ip, a); return res.status(403).json({ error: 'Falsches Passwort' }); }
   const exp = String(Date.now() + 12 * 3600 * 1000);
-  res.set('Set-Cookie', `session=${exp}.${sign(exp)}; HttpOnly; SameSite=Strict; Path=/; Max-Age=${12 * 3600}`);
+  const secure = req.secure || req.headers['x-forwarded-proto'] === 'https' ? '; Secure' : '';
+  res.set('Set-Cookie', `session=${exp}.${sign(exp)}; HttpOnly; SameSite=Strict; Path=/; Max-Age=${12 * 3600}${secure}`);
   res.json({ ok: true });
 });
 app.post('/api/logout', (req, res) => { res.set('Set-Cookie', 'session=; HttpOnly; SameSite=Strict; Path=/; Max-Age=0'); res.json({ ok: true }); });
@@ -240,6 +263,7 @@ admin.put('/settings', (req, res) => {
 });
 admin.post('/logo/:slot', upload.single('file'), (req, res) => {
   const key = req.params.slot === '1' ? 'logo1' : req.params.slot === '2' ? 'logo2' : null;
+  try { checkUpload(req); } catch (e) { return res.status(400).json({ error: e.message }); }
   if (!key || !req.file) return res.status(400).json({ error: 'Keine gültige Bilddatei' });
   const old = getSettings()[key];
   setSetting(key, req.file.filename);
@@ -296,6 +320,7 @@ admin.put('/items/:id', wrap((req, res) => { saveItem(Number(req.params.id), req
 admin.delete('/items/:id', wrap((req, res) => { db.prepare('DELETE FROM items WHERE id=?').run(Number(req.params.id)); res.json({ ok: true }); }));
 
 admin.post('/partners', upload.single('file'), wrap((req, res) => {
+  checkUpload(req);
   const name = String(req.body.name || '').trim();
   if (!name) { if (req.file) removeUpload(req.file.filename); throw new Error('Firmenname fehlt'); }
   const sort = db.prepare('SELECT COALESCE(MAX(sort),-1)+1 n FROM partners').get().n;
@@ -303,6 +328,7 @@ admin.post('/partners', upload.single('file'), wrap((req, res) => {
   res.json({ ok: true });
 }));
 admin.put('/partners/:id', upload.single('file'), wrap((req, res) => {
+  checkUpload(req);
   const id = Number(req.params.id), p = db.prepare('SELECT * FROM partners WHERE id=?').get(id);
   if (!p) throw new Error('Nicht gefunden');
   const name = String(req.body.name ?? p.name).trim();
@@ -327,3 +353,6 @@ app.use(express.static(path.join(__dirname, 'public'), { index: 'index.html' }))
 
 app.use((err, req, res, next) => { console.error(err); res.status(err.status || 500).json({ error: err.message || 'Serverfehler' }); });
 app.listen(PORT, () => console.log(`Agenda-Presenter läuft auf http://localhost:${PORT}`));
+
+process.on('unhandledRejection', (e) => console.error('unhandledRejection', e));
+process.on('uncaughtException', (e) => console.error('uncaughtException', e));
