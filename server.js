@@ -1,5 +1,6 @@
 import express from 'express';
 import multer from 'multer';
+import QRCode from 'qrcode';
 import { DatabaseSync } from 'node:sqlite';
 import crypto from 'node:crypto';
 import fs from 'node:fs';
@@ -145,7 +146,8 @@ function buildState(slug, nowOverride) {
     if (!visible) continue;
     const startTs = `${it.date}T${it.start}:00`, endTs = `${it.date}T${it.end}:00`;
     let status = now >= endTs ? 'past' : now >= startTs ? 'current' : 'upcoming';
-    items.push({ id: it.id, date: it.date, start: it.start, end: it.end, title: it.title, speaker: it.speaker, company: it.company,
+    const rm = it.scope === 'main' ? (main ? [main] : []) : it.scope === 'rooms' ? rooms.filter((r) => rids.includes(r.id)) : [];
+    items.push({ roomNames: rm.map((r) => r.name), roomSlugs: rm.map((r) => r.slug), id: it.id, date: it.date, start: it.start, end: it.end, title: it.title, speaker: it.speaker, company: it.company,
       description: it.description, type: it.type, scope: it.scope, elsewhere, status, startTs, endTs });
   }
   // aktuell: bevorzugt echtes Programm vor Pause
@@ -251,6 +253,13 @@ admin.get('/all', (req, res) => {
   res.json({ settings: getSettings(), rooms, items, partners: db.prepare('SELECT * FROM partners ORDER BY sort, id').all() });
 });
 
+admin.get('/qr', async (req, res) => {
+  const url = String(req.query.url || '');
+  if (!/^https?:\/\/[^\s]{1,300}$/.test(url)) return res.status(400).json({ error: 'Ungültige Adresse' });
+  const svg = await QRCode.toString(url, { type: 'svg', margin: 2, errorCorrectionLevel: 'M' });
+  res.type('image/svg+xml').send(svg);
+});
+
 admin.put('/settings', (req, res) => {
   const allowed = ['title', 'subtitle', 'event_date', 'accent', 'partners_enabled', 'partners_title', 'rotate_agenda_sec', 'rotate_partner_sec'];
   for (const k of allowed) if (k in req.body) {
@@ -348,6 +357,7 @@ app.use('/api/admin', admin);
 // Seiten
 app.get('/raum/:slug', (req, res) => res.sendFile(path.join(__dirname, 'public', 'display.html')));
 app.get('/partner', (req, res) => res.sendFile(path.join(__dirname, 'public', 'display.html')));
+app.get('/agenda', (req, res) => res.sendFile(path.join(__dirname, 'public', 'mobile.html')));
 app.get('/admin', (req, res) => res.sendFile(path.join(__dirname, 'public', 'admin.html')));
 app.use(express.static(path.join(__dirname, 'public'), { index: 'index.html' }));
 

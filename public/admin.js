@@ -235,16 +235,57 @@
   }
 
   // ---- Links ----
+  async function qrDialog(label, url) {
+    let svg;
+    try {
+      const r = await fetch('/api/admin/qr?url=' + encodeURIComponent(url));
+      if (!r.ok) throw new Error((await r.json().catch(() => ({}))).error || 'Fehler');
+      svg = await r.text();
+    } catch (e) { return toast(e.message, true); }
+    const blobUrl = URL.createObjectURL(new Blob([svg], { type: 'image/svg+xml' }));
+    const form = $('dlgForm'); form.replaceChildren();
+    form.onsubmit = (ev) => ev.preventDefault();
+    const fname = 'qr-' + label.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') + '.svg';
+    form.append(h('h2', {}, 'QR-Code: ' + label),
+      h('div', { style: 'display:flex;justify-content:center;margin:8px 0' }, h('img', { src: blobUrl, alt: 'QR-Code', style: 'width:min(70vw,320px);height:auto;background:#fff' })),
+      h('p', { class: 'hint', style: 'text-align:center;word-break:break-all' }, url),
+      h('div', { class: 'actions' },
+        h('a', { href: blobUrl, download: fname }, h('button', { class: 'ghost', type: 'button' }, 'Als SVG speichern')),
+        h('button', { class: 'primary', type: 'button', onclick: () => printPoster(label, url, blobUrl) }, 'Aushang drucken'),
+        h('button', { class: 'ghost', type: 'button', onclick: () => $('dlg').close() }, 'Schließen')));
+    $('dlg').showModal();
+  }
+  function printPoster(label, url, qrUrl) {
+    const s = data.settings, esc = (t) => String(t).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+    const w = window.open('', '_blank'); if (!w) return toast('Pop-ups sind blockiert', true);
+    const img = (f, hgt) => (f ? `<img src="${location.origin}/uploads/${esc(f)}" style="height:${hgt}mm;width:auto;mix-blend-mode:multiply">` : '');
+    w.document.write(`<!doctype html><html lang="de"><head><meta charset="utf-8"><title>Aushang ${esc(label)}</title>
+<style>@font-face{font-family:Outfit;font-weight:300 700;src:url(${location.origin}/fonts/outfit-latin.woff2)}
+@page{size:A4;margin:0}*{box-sizing:border-box}body{margin:0;font-family:Outfit,Arial,sans-serif;color:#111;text-align:center}
+.top{height:70mm;padding:12mm 15mm 0;background:linear-gradient(#e6e6e6,#fff);border-bottom:.6mm dotted #111;display:flex;align-items:center;justify-content:space-between}
+h1{font-size:30mm;line-height:1;margin:16mm 0 4mm;color:#005498;font-weight:700}h1 span{color:#e3000f}
+p{font-size:8mm;font-weight:300;margin:0 15mm}.qr{width:120mm;height:120mm;margin:12mm auto 6mm;display:block}
+.u{font-size:6mm;font-weight:600;color:#005498;word-break:break-all;margin:0 15mm}.sub{font-size:6mm;margin-top:4mm}</style></head><body>
+<div class="top">${img(s.logo1, 48)}${img(s.logo2, 14)}</div>
+<h1><span>»</span> Programm</h1><p>Das aktuelle Programm auf Ihrem Smartphone – einfach QR-Code scannen.</p>
+<img class="qr" src="${qrUrl}" alt="QR-Code"><div class="u">${esc(url)}</div>
+<script>window.onload=()=>setTimeout(()=>print(),400)<\/script></body></html>`);
+    w.document.close();
+  }
   function renderLinks() {
-    const base = location.origin, row = (label, path) => h('div', { class: 'linkrow' }, h('strong', { style: 'min-width:9rem' }, label), h('code', {}, base + path),
+    const base = location.origin, row = (label, path, qr) => h('div', { class: 'linkrow' }, h('strong', { style: 'min-width:9rem' }, label), h('code', {}, base + path),
       h('button', { class: 'ghost', onclick: () => navigator.clipboard.writeText(base + path).then(() => toast('Link kopiert')) }, 'Kopieren'),
-      h('a', { href: path, target: '_blank', rel: 'noopener' }, h('button', { class: 'ghost' }, 'Öffnen')));
-    $('tab-links').replaceChildren(h('div', { class: 'panel' }, h('h2', {}, 'Anzeige-Links'),
-      h('p', { class: 'hint' }, 'Diese Adressen im Vollbild (F11) auf dem jeweiligen Bildschirm öffnen.'),
-      data.rooms.map((r) => row(r.name + (r.is_main ? ' (Hauptbühne)' : ''), '/raum/' + r.slug)),
-      row('Nur Partner-Seite', '/partner'),
-      h('h3', { style: 'margin-top:1.2rem' }, 'Optionen & Test'),
-      h('p', { class: 'hint' }, 'Zeitreise zum Testen: ', h('code', {}, '?now=2026-10-08T14:30'), ' · Ohne Partner-Wechsel: ', h('code', {}, '?rotate=0'))));
+      h('a', { href: path, target: '_blank', rel: 'noopener' }, h('button', { class: 'ghost' }, 'Öffnen')),
+      qr && h('button', { class: 'ghost', onclick: () => qrDialog(label, base + path) }, 'QR-Code'));
+    $('tab-links').replaceChildren(h('div', { class: 'panel' }, h('h2', {}, 'Agenda für Smartphones'),
+      h('p', { class: 'hint' }, 'Für Besucher: beide Räume in einer Liste, automatisch aktuell. Den QR-Code könnt ihr als Aushang drucken.'),
+      row('Agenda mobil', '/agenda', true)),
+      h('div', { class: 'panel' }, h('h2', {}, 'Anzeige-Links'),
+        h('p', { class: 'hint' }, 'Diese Adressen im Vollbild (F11) auf dem jeweiligen Bildschirm öffnen.'),
+        data.rooms.map((r) => row(r.name + (r.is_main ? ' (Hauptbühne)' : ''), '/raum/' + r.slug)),
+        row('Nur Partner-Seite', '/partner'),
+        h('h3', { style: 'margin-top:1.2rem' }, 'Optionen & Test'),
+        h('p', { class: 'hint' }, 'Zeitreise zum Testen: ', h('code', {}, '?now=2026-10-08T14:30'), ' · Ohne Partner-Wechsel: ', h('code', {}, '?rotate=0'))));
   }
 
   start();

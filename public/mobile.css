@@ -1,0 +1,61 @@
+@font-face {
+  font-family: "Outfit"; font-style: normal; font-weight: 300 700; font-display: swap;
+  src: url(/fonts/outfit-latin.woff2) format("woff2");
+}
+:root { --accent: #005498; --red: #e3000f; --ink: #111; --faint: #767676; --rule: #b8b8b8; --tint: #dbe7f1; --tint: color-mix(in srgb, var(--accent) 14%, #fff); }
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html { -webkit-text-size-adjust: 100%; }
+body { font-family: "Neulis Sans", "Outfit", Arial, sans-serif; color: var(--ink); background: #fff; font-size: 17px; line-height: 1.35; }
+.arr { color: var(--red); font-weight: 700; }
+
+header { position: relative; padding: 18px 18px 14px; background: linear-gradient(#e6e6e6, #fff); border-bottom: 2px dotted var(--ink); }
+.logos { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-bottom: 14px; }
+.logos img { max-height: 76px; max-width: 46%; object-fit: contain; mix-blend-mode: multiply; }
+.logos img#logo2 { max-height: 34px; }
+.logos h1 { font-size: 22px; color: var(--accent); }
+.headline { font-size: 34px; line-height: 1.1; }
+.headline b { color: var(--accent); font-weight: 700; }
+#subtitle { font-weight: 300; font-size: 16px; margin-top: 4px; }
+#net { position: absolute; top: 8px; right: 10px; width: 22px; height: 22px; color: var(--faint); }
+#net[hidden] { display: none; }
+
+main { max-width: 680px; margin: 0 auto; padding-bottom: 90px; }
+.day { padding: 18px 18px 6px; font-size: 13px; letter-spacing: .14em; text-transform: uppercase; font-weight: 700; color: var(--faint); }
+
+.slot { padding: 14px 18px 6px; border-bottom: 2px dotted var(--rule); scroll-margin-top: 8px; }
+.slot-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; margin-bottom: 8px; }
+.slot-time { font-size: 20px; font-weight: 700; font-variant-numeric: tabular-nums; }
+.slot-flag { font-size: 13px; letter-spacing: .14em; text-transform: uppercase; font-weight: 700; }
+.it { padding: 10px 0 12px; border-top: 1px dotted var(--rule); }
+.it:first-of-type { border-top: 0; padding-top: 2px; }
+.room { font-size: 12px; letter-spacing: .12em; text-transform: uppercase; font-weight: 700; color: var(--accent); margin-bottom: 3px; }
+.ttl { font-size: 19px; font-weight: 700; line-height: 1.25; }
+.who { font-size: 16px; font-weight: 400; margin-top: 3px; }
+.it.brk .ttl { font-weight: 300; }
+details summary { list-style: none; cursor: pointer; }
+details summary::-webkit-details-marker { display: none; }
+.more { display: inline-block; margin-top: 6px; font-size: 14px; font-weight: 600; color: var(--accent); }
+details[open] .more { display: none; }
+.desc { margin-top: 8px; font-size: 15px; font-weight: 300; line-height: 1.45; }
+
+.slot.past { color: var(--faint); }
+.slot.past .room { color: var(--faint); }
+.slot.current { background: var(--accent); color: #fff; }
+.slot.current .room, .slot.current .slot-flag { color: #fff; }
+.slot.current .slot-flag::before { content: "» "; }
+.slot.current .it { border-top-color: rgba(255,255,255,.35); }
+.slot.current .more { color: #fff; }
+.slot.next { background: var(--tint); }
+.slot.next .slot-time { color: var(--ink); }
+.slot.next .slot-flag { color: var(--red); }
+.slot.next .slot-flag::before { content: "» "; }
+
+#partners { padding: 26px 18px 10px; }
+#partners h2 { font-size: 24px; color: var(--accent); margin-bottom: 14px; }
+#partnerGrid { display: grid; grid-template-columns: 1fr 1fr; border-left: 1px dotted var(--rule); border-top: 1px dotted var(--rule); }
+.p { display: flex; align-items: center; justify-content: center; height: 96px; padding: 14px; border-right: 1px dotted var(--rule); border-bottom: 1px dotted var(--rule); }
+.p img { max-width: 100%; max-height: 100%; object-fit: contain; }
+.p span { font-weight: 700; text-align: center; }
+
+#jump { position: fixed; right: 14px; bottom: 14px; min-height: 48px; padding: 0 18px; border: 0; border-radius: 3px; background: var(--ink); color: #fff; font: 600 16px "Outfit", Arial, sans-serif; box-shadow: 0 2px 10px rgba(0,0,0,.3); }
+#jump[hidden] { display: none; }

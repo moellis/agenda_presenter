@@ -7,6 +7,7 @@ Vollbild-Agenda für Veranstaltungen: mehrere Räume, Hauptbühne, „Jetzt“ /
     ADMIN_PASSWORD=geheim docker compose up -d --build     # oder: npm install && ADMIN_PASSWORD=geheim npm start
 
 - Anzeige je Raum: `/raum/<slug>` (z. B. `/raum/hauptbuehne`, `/raum/see`)
+- Agenda fürs Smartphone: `/agenda` (beide Räume untereinander, automatisch aktuell, mit Partnern am Ende). QR-Code und druckfertiger A4-Aushang: Admin → „Anzeige-Links“ → „QR-Code“. Den Admin dafür über die **öffentliche Adresse** öffnen, denn diese steckt im QR-Code.
 - Partner-Seite allein: `/partner` (in der Raum-Anzeige wechselt sie automatisch, Zeiten im Admin einstellbar)
 - Admin: `/admin` (Passwort aus `ADMIN_PASSWORD`)
 - Testen: `?now=2026-10-08T14:30` simuliert die Uhrzeit, `?rotate=0` schaltet den Partner-Wechsel aus

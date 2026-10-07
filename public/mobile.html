@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#005498">
+<title>Programm</title>
+<link rel="stylesheet" href="/mobile.css">
+</head>
+<body>
+<header>
+  <div class="logos">
+    <img id="logo1" alt="" hidden><h1 id="title" hidden></h1>
+    <img id="logo2" alt="" hidden>
+  </div>
+  <div class="headline"><span class="arr">»</span> <b>Programm</b></div>
+  <div id="subtitle"></div>
+  <div id="net" role="img" aria-label="Keine Verbindung zum Server" title="Keine Verbindung zum Server" hidden>
+    <svg viewBox="0 0 24 24" width="100%" height="100%" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <path d="M2 8.8a15 15 0 0 1 20 0"/><path d="M5 12.5a10 10 0 0 1 14 0"/><path d="M8.5 16a5 5 0 0 1 7 0"/>
+      <circle cx="12" cy="19.6" r="1" fill="currentColor" stroke="none"/>
+      <path d="M3.5 3.5l17 17" stroke="#e3000f" stroke-width="2.2"/>
+    </svg>
+  </div>
+</header>
+
+<main>
+  <div id="slots"></div>
+  <section id="partners" hidden>
+    <h2><span class="arr">»</span> <span id="partnersTitle"></span></h2>
+    <div id="partnerGrid"></div>
+  </section>
+</main>
+
+<button id="jump" type="button" hidden><span class="arr">»</span> Zum aktuellen Punkt</button>
+<script src="/mobile.js"></script>
+</body>
+</html>

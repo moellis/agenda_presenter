@@ -1,7 +1,7 @@
 // Zwischenspeicher, damit die Anzeige auch nach einem Neustart ohne Netz startet.
 // Nur in sicheren Kontexten (https oder localhost) verfügbar.
-const CACHE = 'agenda-v1';
-const PRECACHE = ['/display.css', '/display.js', '/fonts/outfit-latin.woff2'];
+const CACHE = 'agenda-v2';
+const PRECACHE = ['/display.css', '/display.js', '/mobile.css', '/mobile.js', '/fonts/outfit-latin.woff2'];
 
 self.addEventListener('install', (e) => {
   e.waitUntil(caches.open(CACHE).then((c) => c.addAll(PRECACHE)).then(() => self.skipWaiting()));
@@ -22,7 +22,7 @@ self.addEventListener('fetch', (e) => {
     );
     return;
   }
-  if (/^\/(display\.|fonts\/|uploads\/)/.test(url.pathname)) { // Dateien: Zwischenspeicher zuerst, im Hintergrund erneuern
+  if (/^\/(display\.|mobile\.|fonts\/|uploads\/)/.test(url.pathname)) { // Dateien: Zwischenspeicher zuerst, im Hintergrund erneuern
     e.respondWith(
       caches.match(req).then((hit) => {
         const net = fetch(req).then((r) => { if (r.ok) { const cp = r.clone(); caches.open(CACHE).then((c) => c.put(req, cp)); } return r; }).catch(() => hit);
