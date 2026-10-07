@@ -74,9 +74,9 @@
   function render() {
     if (!data) return;
     document.querySelectorAll('#tabs button').forEach((b) => b.classList.toggle('active', b.dataset.tab === currentTab));
-    for (const t of ['event', 'rooms', 'items', 'partners', 'links']) $('tab-' + t).hidden = t !== currentTab;
+    for (const t of ['event', 'rooms', 'items', 'partners', 'links', 'backup']) $('tab-' + t).hidden = t !== currentTab;
     // Tab-Inhalt nur neu aufbauen, wenn aktiv (erhält Eingaben der anderen Tabs nicht – nicht nötig)
-    ({ event: renderEvent, rooms: renderRooms, items: renderItems, partners: renderPartners, links: renderLinks })[currentTab]();
+    ({ event: renderEvent, rooms: renderRooms, items: renderItems, partners: renderPartners, links: renderLinks, backup: renderBackup })[currentTab]();
     $('hTitle').textContent = data.settings.title || 'Agenda-Presenter';
   }
 
@@ -286,6 +286,27 @@ p{font-size:8mm;font-weight:300;margin:0 15mm}.qr{width:120mm;height:120mm;margi
         row('Nur Partner-Seite', '/partner'),
         h('h3', { style: 'margin-top:1.2rem' }, 'Optionen & Test'),
         h('p', { class: 'hint' }, 'Zeitreise zum Testen: ', h('code', {}, '?now=2026-10-08T14:30'), ' · Ohne Partner-Wechsel: ', h('code', {}, '?rotate=0'))));
+  }
+
+  // ---- Sicherung ----
+  function renderBackup() {
+    const file = h('input', { type: 'file', accept: '.json,application/json' });
+    $('tab-backup').replaceChildren(
+      h('div', { class: 'panel' }, h('h2', {}, 'Export'),
+        h('p', { class: 'hint' }, 'Lädt eine Datei mit dem kompletten Stand herunter: Titel, Räume, Programm, Partner, Einstellungen und alle Logos. Das Admin-Passwort ist nicht enthalten.'),
+        h('a', { href: '/api/admin/export', download: '' }, h('button', { class: 'primary', type: 'button' }, 'Export herunterladen'))),
+      h('div', { class: 'panel' }, h('h2', {}, 'Import'),
+        h('p', { class: 'hint' }, 'Ersetzt den gesamten aktuellen Stand durch den Inhalt einer Export-Datei (zum Beispiel vom Test-System). Vorher wird automatisch eine Sicherung des aktuellen Stands im Datenordner angelegt.'),
+        h('label', {}, 'Export-Datei (.json)', file),
+        h('button', { class: 'primary', type: 'button', onclick: async () => {
+          if (!file.files[0]) return toast('Bitte zuerst eine Datei wählen', true);
+          let d;
+          try { d = JSON.parse(await file.files[0].text()); } catch { return toast('Die Datei ist keine gültige Export-Datei', true); }
+          if (!d || d.format !== 'agenda-presenter-export') return toast('Das ist keine Export-Datei dieser Anwendung', true);
+          const msg = `Aktuellen Stand ersetzen?\n\nDatei: ${d.settings?.title || '?'} (exportiert ${d.exportedAt ? new Date(d.exportedAt).toLocaleString('de-DE') : '?'})\n${d.rooms?.length || 0} Räume · ${d.items?.length || 0} Programmpunkte · ${d.partners?.length || 0} Partner · ${Object.keys(d.files || {}).length} Bilder`;
+          if (!confirm(msg)) return;
+          try { await api('POST', '/api/admin/import', d); toast('Import abgeschlossen'); file.value = ''; await refresh(); } catch (e) { toast(e.message, true); }
+        } }, 'Importieren')));
   }
 
   start();

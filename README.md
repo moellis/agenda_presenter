@@ -14,6 +14,10 @@ Vollbild-Agenda für Veranstaltungen: mehrere Räume, Hauptbühne, „Jetzt“ /
 - Daten (SQLite + Uploads) liegen in `DATA_DIR` (Docker: Volume `/data`). Beim ersten Start wird das IT-Sicherheitsforum Allgäu 2026 aus `seed-assets/` angelegt.
 - Zeitzone: Europe/Berlin, Aktualisierung der Anzeige alle 10 s.
 
+## Sicherung
+
+Admin → „Sicherung“: Export (eine JSON-Datei mit allen Daten und Logos) und Import (ersetzt den Stand, legt vorher automatisch eine Sicherung in `/data/backups/` an).
+
 ## Notfallbetrieb ohne Verbindung
 
 - Fällt die Verbindung zum Server aus, läuft die Anzeige weiter: „Jetzt“ / „Als Nächstes“ und die Fortschrittsanzeige werden im Browser berechnet. Grundlage ist die zuletzt vom Server gemeldete Zeit, fortgeschrieben mit der Uhr des Geräts. Oben rechts erscheint ein kleines durchgestrichenes WLAN-Symbol.

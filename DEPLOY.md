@@ -33,6 +33,14 @@ Weiterleiten von `agenda.it-sicherheitsforum.events` an den Container, Port **30
 - Admin: `https://agenda.it-sicherheitsforum.events/admin` – Passwort aus `ADMIN_PASSWORD`.
 - **Wichtig:** Den Admin über die öffentliche Adresse öffnen, bevor ihr den QR-Code erzeugt (Admin → „Anzeige-Links“ → „QR-Code“).
 
+### Daten vom Test-System übernehmen
+1. Test-System: Admin → **Sicherung** → *Export herunterladen* (eine `.json`-Datei mit Texten, Einstellungen und Logos).
+2. Neues System: Admin → **Sicherung** → Datei wählen → *Importieren* und bestätigen.
+   Der aktuelle Stand wird dabei ersetzt; vorher legt die Anwendung automatisch eine Sicherung unter `/data/backups/` an (die letzten 5 bleiben).
+3. Die Anzeigen übernehmen die neuen Daten innerhalb weniger Sekunden.
+
+Das Admin-Passwort ist nicht Teil des Exports, es kommt immer aus `ADMIN_PASSWORD`.
+
 ## 5. Adressen
 - Hauptbühne: `/raum/hauptbuehne` · Raum See: `/raum/see`
 - Partner-Seite: `/partner` · Handy-Agenda: `/agenda`
@@ -47,7 +55,9 @@ Weiterleiten von `agenda.it-sicherheitsforum.events` an den Container, Port **30
 - [ ] Datensicherung angelegt (siehe unten)
 
 ## 7. Sicherung
-Alle Daten (Datenbank, hochgeladene Logos) liegen im Volume `agenda-data` (Pfad im Container `/data`).
+Einfachster Weg: Admin → **Sicherung** → *Export herunterladen* (vor dem 8.10. und am Veranstaltungstag einmal).
+
+Komplette Sicherung des Volumes: alle Daten (Datenbank, hochgeladene Logos) liegen im Volume `agenda-data` (Pfad im Container `/data`).
 Sicherung z. B. mit:
 `docker run --rm -v agenda-data:/data -v $PWD:/backup alpine tar czf /backup/agenda-backup.tgz -C /data .`
 Vor Änderungen am Veranstaltungstag eine Sicherung ziehen.

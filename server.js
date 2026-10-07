@@ -190,6 +190,104 @@ const app = express();
 app.disable('x-powered-by');
 // Hinter einem Reverse-Proxy (Traefik, Nginx Proxy Manager, Caddy …): echte Client-IP für die Login-Sperre
 if (process.env.TRUST_PROXY) app.set('trust proxy', /^\d+$/.test(process.env.TRUST_PROXY) ? Number(process.env.TRUST_PROXY) : process.env.TRUST_PROXY);
+
+// ---------- Export / Import (Sicherung) ----------
+const SETTING_KEYS = ['title', 'subtitle', 'event_date', 'logo1', 'logo2', 'accent', 'partners_enabled', 'partners_title', 'rotate_agenda_sec', 'rotate_partner_sec'];
+const FILE_NAME = /^[A-Za-z0-9][A-Za-z0-9._-]{0,80}\.(png|jpe?g|gif|webp|svg)$/i;
+const MIME = { png: 'image/png', jpg: 'image/jpeg', jpeg: 'image/jpeg', gif: 'image/gif', webp: 'image/webp', svg: 'image/svg+xml' };
+
+function buildExport() {
+  const all = getSettings(), settings = {};
+  for (const k of SETTING_KEYS) settings[k] = all[k];
+  const rooms = db.prepare('SELECT * FROM rooms ORDER BY sort, id').all();
+  const links = db.prepare('SELECT item_id, room_id FROM item_rooms').all();
+  const slugOf = (id) => rooms.find((r) => r.id === id)?.slug;
+  const items = db.prepare('SELECT * FROM items ORDER BY date, start, end, id').all().map((i) => ({
+    date: i.date, start: i.start, end: i.end, title: i.title, speaker: i.speaker, company: i.company, description: i.description,
+    type: i.type, scope: i.scope, rooms: links.filter((l) => l.item_id === i.id).map((l) => slugOf(l.room_id)).filter(Boolean) }));
+  const partners = db.prepare('SELECT * FROM partners ORDER BY sort, id').all().map((p) => ({ name: p.name, category: p.category, logo: p.logo, sort: p.sort }));
+  const names = new Set([settings.logo1, settings.logo2, ...partners.map((p) => p.logo)].filter(Boolean));
+  const files = {};
+  for (const n of names) {
+    if (!FILE_NAME.test(n)) continue;
+    try { files[n] = { type: MIME[n.split('.').pop().toLowerCase()], data: fs.readFileSync(path.join(UPLOAD_DIR, n)).toString('base64') }; } catch {}
+  }
+  return { format: 'agenda-presenter-export', version: 1, exportedAt: new Date().toISOString(), settings,
+    rooms: rooms.map((r) => ({ name: r.name, slug: r.slug, is_main: !!r.is_main, sort: r.sort })), items, partners, files };
+}
+
+function validateImport(d) {
+  const bad = (m) => { throw new Error('Import-Datei ungültig: ' + m); };
+  if (!d || d.format !== 'agenda-presenter-export' || d.version !== 1) bad('keine Export-Datei dieser Anwendung');
+  if (!d.settings || typeof d.settings !== 'object') bad('Einstellungen fehlen');
+  for (const k of ['rooms', 'items', 'partners']) if (!Array.isArray(d[k])) bad(k + ' fehlt');
+  if (d.rooms.length > 50 || d.items.length > 2000 || d.partners.length > 200) bad('zu viele Einträge');
+  const slugs = new Set();
+  for (const r of d.rooms) {
+    if (typeof r.name !== 'string' || !r.name.trim() || typeof r.slug !== 'string' || !/^[a-z0-9-]{1,60}$/.test(r.slug)) bad('Raum fehlerhaft');
+    if (slugs.has(r.slug)) bad('Raumkürzel doppelt: ' + r.slug); slugs.add(r.slug);
+  }
+  if (d.rooms.filter((r) => r.is_main).length > 1) bad('mehr als eine Hauptbühne');
+  for (const i of d.items) {
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(i.date) || !TIME.test(i.start) || !TIME.test(i.end) || i.end <= i.start) bad('Zeit fehlerhaft bei „' + i.title + '“');
+    if (typeof i.title !== 'string' || !i.title.trim()) bad('Programmpunkt ohne Titel');
+    if (!['all', 'main', 'rooms'].includes(i.scope) || !['talk', 'break'].includes(i.type)) bad('Art/Zuordnung fehlerhaft bei „' + i.title + '“');
+    for (const s of i.rooms || []) if (!slugs.has(s)) bad('unbekannter Raum „' + s + '“');
+  }
+  for (const p of d.partners) if (typeof p.name !== 'string' || !p.name.trim()) bad('Partner ohne Namen');
+  const files = d.files && typeof d.files === 'object' ? d.files : {};
+  const referenced = [d.settings.logo1, d.settings.logo2, ...d.partners.map((p) => p.logo)].filter(Boolean);
+  for (const n of referenced) if (!FILE_NAME.test(n) || !files[n]) bad('Logo-Datei fehlt: ' + n);
+  const decoded = {};
+  for (const [n, f] of Object.entries(files)) {
+    if (!FILE_NAME.test(n) || typeof f.data !== 'string') bad('Dateiname ungültig: ' + n);
+    const buf = Buffer.from(f.data, 'base64');
+    if (buf.length > 8 * 1024 * 1024) bad('Datei zu groß: ' + n);
+    if (!headLooksLikeImage(buf)) bad('kein gültiges Bild: ' + n);
+    decoded[n] = buf;
+  }
+  return decoded;
+}
+
+function applyImport(d) {
+  const decoded = validateImport(d);
+  // automatische Sicherung des aktuellen Stands
+  const bdir = path.join(DATA_DIR, 'backups'); fs.mkdirSync(bdir, { recursive: true });
+  fs.writeFileSync(path.join(bdir, 'vor-import-' + new Date().toISOString().replace(/[:.]/g, '-') + '.json'), JSON.stringify(buildExport()));
+  for (const old of fs.readdirSync(bdir).sort().slice(0, -5)) fs.rmSync(path.join(bdir, old), { force: true });
+  for (const [n, buf] of Object.entries(decoded)) fs.writeFileSync(path.join(UPLOAD_DIR, n), buf);
+  tx(() => {
+    db.exec('DELETE FROM item_rooms; DELETE FROM items; DELETE FROM rooms; DELETE FROM partners;');
+    const slugToId = {};
+    d.rooms.forEach((r, i) => { slugToId[r.slug] = Number(db.prepare('INSERT INTO rooms(name,slug,is_main,sort) VALUES(?,?,?,?)').run(r.name.trim(), r.slug, r.is_main ? 1 : 0, Number.isFinite(r.sort) ? r.sort : i).lastInsertRowid); });
+    for (const i of d.items) {
+      const id = Number(db.prepare('INSERT INTO items(date,start,end,title,speaker,company,description,type,scope) VALUES(?,?,?,?,?,?,?,?,?)')
+        .run(i.date, i.start, i.end, i.title.trim(), String(i.speaker || ''), String(i.company || ''), String(i.description || ''), i.type, i.scope).lastInsertRowid);
+      if (i.scope === 'rooms') for (const s of i.rooms || []) db.prepare('INSERT OR IGNORE INTO item_rooms(item_id,room_id) VALUES(?,?)').run(id, slugToId[s]);
+    }
+    d.partners.forEach((p, i) => db.prepare('INSERT INTO partners(name,category,logo,sort) VALUES(?,?,?,?)').run(p.name.trim(), String(p.category || ''), p.logo || '', Number.isFinite(p.sort) ? p.sort : i));
+    for (const k of SETTING_KEYS) if (k in d.settings) {
+      let v = d.settings[k];
+      if (k === 'accent' && !/^#[0-9a-fA-F]{6}$/.test(v)) continue;
+      if (k.startsWith('rotate_')) v = Math.max(5, Math.min(600, parseInt(v) || 15));
+      setSetting(k, v);
+    }
+    setSetting('seeded', '1');
+  });
+  // nicht mehr verwendete Dateien aufräumen
+  const used = new Set([getSettings().logo1, getSettings().logo2, ...db.prepare('SELECT logo FROM partners').all().map((p) => p.logo)].filter(Boolean));
+  for (const f of fs.readdirSync(UPLOAD_DIR)) if (!used.has(f)) fs.rmSync(path.join(UPLOAD_DIR, f), { force: true });
+}
+
+app.get('/api/admin/export', requireAuth, (req, res) => {
+  const stamp = new Date().toLocaleString('sv-SE', { timeZone: TZ }).replace(/[: ]/g, (c) => (c === ' ' ? '-' : '')).slice(0, 15);
+  res.set({ 'Content-Type': 'application/json; charset=utf-8', 'Content-Disposition': `attachment; filename="agenda-export-${stamp}.json"`, 'Cache-Control': 'no-store' });
+  res.send(JSON.stringify(buildExport()));
+});
+app.post('/api/admin/import', requireAuth, express.json({ limit: '80mb' }), (req, res) => {
+  try { applyImport(req.body); res.json({ ok: true }); } catch (e) { res.status(400).json({ error: e.message }); }
+});
+
 app.use(express.json({ limit: '1mb' }));
 
 app.get('/sw.js', (req, res) => { res.set('Cache-Control', 'no-cache'); res.type('js').sendFile(path.join(__dirname, 'public', 'sw.js')); });
@@ -205,16 +303,18 @@ const upload = multer({
   fileFilter: (req, file, cb) => { const ok = /^image\/(png|jpe?g|svg\+xml|webp|gif)$/.test(file.mimetype); if (!ok) req.badFile = true; cb(null, ok); },
 });
 // Dateiinhalt prüfen (nicht nur die vom Browser gemeldete Art)
+function headLooksLikeImage(h) {
+  const hex = h.subarray(0, 12).toString('hex');
+  if (hex.startsWith('89504e47')) return true;                       // PNG
+  if (hex.startsWith('ffd8ff')) return true;                         // JPEG
+  if (hex.startsWith('47494638')) return true;                       // GIF
+  if (hex.startsWith('52494646') && h.subarray(8, 12).toString() === 'WEBP') return true;
+  return /<svg[\s>]/i.test(h.subarray(0, 256).toString('utf8'));     // SVG
+}
 function looksLikeImage(file) {
   try {
     const fd = fs.openSync(file.path, 'r'); const b = Buffer.alloc(256); const n = fs.readSync(fd, b, 0, 256, 0); fs.closeSync(fd);
-    const h = b.subarray(0, n);
-    const hex = h.subarray(0, 12).toString('hex');
-    if (hex.startsWith('89504e47')) return true;                       // PNG
-    if (hex.startsWith('ffd8ff')) return true;                         // JPEG
-    if (hex.startsWith('47494638')) return true;                       // GIF
-    if (hex.startsWith('52494646') && h.subarray(8, 12).toString() === 'WEBP') return true;
-    return /<svg[\s>]/i.test(h.toString('utf8'));                      // SVG
+    return headLooksLikeImage(b.subarray(0, n));
   } catch { return false; }
 }
 function checkUpload(req) {
