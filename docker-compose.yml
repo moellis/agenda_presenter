@@ -1,12 +1,17 @@
+# Agenda-Presenter – Stack für Portainer (Git-Repository) oder `docker compose up -d --build`
 services:
   agenda:
     build: .
+    image: agenda-presenter:latest
+    container_name: agenda-presenter
     restart: unless-stopped
-    ports:
-      - "3000:3000"
     environment:
       ADMIN_PASSWORD: ${ADMIN_PASSWORD:?bitte ADMIN_PASSWORD setzen}
+      SESSION_SECRET: ${SESSION_SECRET:-}      # optional: langer Zufallswert, damit Logins Neustarts überstehen
+      TRUST_PROXY: ${TRUST_PROXY:-1}           # 1 = ein Reverse-Proxy davor
     volumes:
       - agenda-data:/data
+    ports:
+      - "${HOST_PORT:-3000}:3000"              # für Proxy auf dem Host; entfällt bei gemeinsamem Docker-Netzwerk
 volumes:
   agenda-data:

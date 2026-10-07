@@ -188,6 +188,8 @@ const attempts = new Map();
 // ---------- App ----------
 const app = express();
 app.disable('x-powered-by');
+// Hinter einem Reverse-Proxy (Traefik, Nginx Proxy Manager, Caddy …): echte Client-IP für die Login-Sperre
+if (process.env.TRUST_PROXY) app.set('trust proxy', /^\d+$/.test(process.env.TRUST_PROXY) ? Number(process.env.TRUST_PROXY) : process.env.TRUST_PROXY);
 app.use(express.json({ limit: '1mb' }));
 
 app.get('/sw.js', (req, res) => { res.set('Cache-Control', 'no-cache'); res.type('js').sendFile(path.join(__dirname, 'public', 'sw.js')); });
